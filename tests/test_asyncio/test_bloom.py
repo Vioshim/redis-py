@@ -390,7 +390,7 @@ async def test_tdigest_quantile(modclient: redis.Redis):
     assert await modclient.tdigest().create("tDigest", 500)
     # insert data-points into sketch
     assert await modclient.tdigest().add(
-        "tDigest", list([x * 0.01 for x in range(1, 10000)])
+        "tDigest", [x * 0.01 for x in range(1, 10000)]
     )
     # assert min min/max have same result as quantile 0 and 1
     assert (
@@ -439,7 +439,7 @@ async def test_tdigest_trimmed_mean(modclient: redis.Redis):
 @pytest.mark.experimental
 async def test_tdigest_rank(modclient: redis.Redis):
     assert await modclient.tdigest().create("t-digest", 500)
-    assert await modclient.tdigest().add("t-digest", list(range(0, 20)))
+    assert await modclient.tdigest().add("t-digest", list(range(20)))
     assert -1 == (await modclient.tdigest().rank("t-digest", -1))[0]
     assert 0 == (await modclient.tdigest().rank("t-digest", 0))[0]
     assert 10 == (await modclient.tdigest().rank("t-digest", 10))[0]
@@ -450,7 +450,7 @@ async def test_tdigest_rank(modclient: redis.Redis):
 @pytest.mark.experimental
 async def test_tdigest_revrank(modclient: redis.Redis):
     assert await modclient.tdigest().create("t-digest", 500)
-    assert await modclient.tdigest().add("t-digest", list(range(0, 20)))
+    assert await modclient.tdigest().add("t-digest", list(range(20)))
     assert -1 == (await modclient.tdigest().revrank("t-digest", 20))[0]
     assert 19 == (await modclient.tdigest().revrank("t-digest", 0))[0]
     assert [-1, 19, 9] == await modclient.tdigest().revrank("t-digest", 21, 0, 10)

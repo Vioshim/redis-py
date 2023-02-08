@@ -86,7 +86,7 @@ class TestSSL:
     def _create_oscp_conn(self, request):
         ssl_url = request.config.option.redis_ssl_url
         p = urlparse(ssl_url)[1].split(":")
-        r = redis.Redis(
+        return redis.Redis(
             host=p[0],
             port=p[1],
             ssl=True,
@@ -96,7 +96,6 @@ class TestSSL:
             ssl_ca_certs=self.SERVER_CERT,
             ssl_validate_ocsp=True,
         )
-        return r
 
     @skip_if_cryptography()
     def test_ssl_ocsp_called(self, request):

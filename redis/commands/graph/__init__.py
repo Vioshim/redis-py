@@ -48,19 +48,19 @@ class Graph(GraphCommands):
         lbls = self.labels()
 
         # Unpack data.
-        self._labels = [l[0] for _, l in enumerate(lbls)]
+        self._labels = [l[0] for l in lbls]
 
     def _refresh_relations(self):
         rels = self.relationship_types()
 
         # Unpack data.
-        self._relationship_types = [r[0] for _, r in enumerate(rels)]
+        self._relationship_types = [r[0] for r in rels]
 
     def _refresh_attributes(self):
         props = self.property_keys()
 
         # Unpack data.
-        self._properties = [p[0] for _, p in enumerate(props)]
+        self._properties = [p[0] for p in props]
 
     def get_label(self, idx):
         """
@@ -138,7 +138,7 @@ class Graph(GraphCommands):
         # Header starts with "CYPHER"
         params_header = "CYPHER "
         for key, value in params.items():
-            params_header += str(key) + "=" + stringify_param_value(value) + " "
+            params_header += f"{str(key)}={stringify_param_value(value)} "
         return params_header
 
     # Procedures.
@@ -146,7 +146,7 @@ class Graph(GraphCommands):
         args = [quote_string(arg) for arg in args]
         q = f"CALL {procedure}({','.join(args)})"
 
-        y = kwagrs.get("y", None)
+        y = kwagrs.get("y")
         if y is not None:
             q += f"YIELD {','.join(y)}"
 
@@ -169,19 +169,19 @@ class AsyncGraph(Graph, AsyncGraphCommands):
         lbls = await self.labels()
 
         # Unpack data.
-        self._labels = [l[0] for _, l in enumerate(lbls)]
+        self._labels = [l[0] for l in lbls]
 
     async def _refresh_attributes(self):
         props = await self.property_keys()
 
         # Unpack data.
-        self._properties = [p[0] for _, p in enumerate(props)]
+        self._properties = [p[0] for p in props]
 
     async def _refresh_relations(self):
         rels = await self.relationship_types()
 
         # Unpack data.
-        self._relationship_types = [r[0] for _, r in enumerate(rels)]
+        self._relationship_types = [r[0] for r in rels]
 
     async def get_label(self, idx):
         """
@@ -238,7 +238,7 @@ class AsyncGraph(Graph, AsyncGraphCommands):
         args = [quote_string(arg) for arg in args]
         q = f"CALL {procedure}({','.join(args)})"
 
-        y = kwagrs.get("y", None)
+        y = kwagrs.get("y")
         if y is not None:
             f"YIELD {','.join(y)}"
         return await self.query(q, read_only=read_only)

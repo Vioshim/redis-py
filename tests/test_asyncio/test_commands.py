@@ -202,7 +202,10 @@ class TestRedisCommands:
             "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
         )
         assert await r.acl_setuser(
-            username, enabled=True, reset=True, hashed_passwords=["+" + hashed_password]
+            username,
+            enabled=True,
+            reset=True,
+            hashed_passwords=[f"+{hashed_password}"],
         )
         acl = await r.acl_getuser(username)
         assert acl["passwords"] == [hashed_password]
@@ -212,12 +215,12 @@ class TestRedisCommands:
             username,
             enabled=True,
             reset=True,
-            hashed_passwords=["+" + hashed_password],
+            hashed_passwords=[f"+{hashed_password}"],
             passwords=["+pass1"],
         )
         assert len((await r.acl_getuser(username))["passwords"]) == 2
         assert await r.acl_setuser(
-            username, enabled=True, hashed_passwords=["-" + hashed_password]
+            username, enabled=True, hashed_passwords=[f"-{hashed_password}"]
         )
         assert len((await r.acl_getuser(username))["passwords"]) == 1
 
@@ -502,7 +505,7 @@ class TestRedisCommands:
     @pytest.mark.onlynoncluster
     async def test_slowlog_get(self, r: redis.Redis, slowlog):
         assert await r.slowlog_reset()
-        unicode_string = chr(3456) + "abcd" + chr(3421)
+        unicode_string = f"{chr(3456)}abcd{chr(3421)}"
         await r.get(unicode_string)
         slowlog = await r.slowlog_get()
         assert isinstance(slowlog, list)
@@ -768,7 +771,7 @@ class TestRedisCommands:
         assert await r.get("a") is None
         byte_string = b"value"
         integer = 5
-        unicode_string = chr(3456) + "abcd" + chr(3421)
+        unicode_string = f"{chr(3456)}abcd{chr(3421)}"
         assert await r.set("byte_string", byte_string)
         assert await r.set("integer", 5)
         assert await r.set("unicode_string", unicode_string)
@@ -821,7 +824,7 @@ class TestRedisCommands:
         assert await r.incrbyfloat("a") == 1.0
         assert await r.get("a") == b"1"
         assert await r.incrbyfloat("a", 1.1) == 2.1
-        assert float(await r.get("a")) == float(2.1)
+        assert float(await r.get("a")) == 2.1
 
     @pytest.mark.onlynoncluster
     async def test_keys(self, r: redis.Redis):
@@ -1469,8 +1472,8 @@ class TestRedisCommands:
         await r.zadd("a", {"a1": 1, "a2": 2, "a3": 3})
         assert await r.zcount("a", "-inf", "+inf") == 3
         assert await r.zcount("a", 1, 2) == 2
-        assert await r.zcount("a", "(" + str(1), 2) == 1
-        assert await r.zcount("a", 1, "(" + str(2)) == 1
+        assert await r.zcount("a", '(1', 2) == 1
+        assert await r.zcount("a", 1, '(2') == 1
         assert await r.zcount("a", 10, 20) == 0
 
     async def test_zincrby(self, r: redis.Redis):
