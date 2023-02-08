@@ -436,8 +436,8 @@ class TestRedisClusterObj:
         with patch.object(Redis, "parse_response") as parse_response:
             with patch.object(NodesManager, "initialize", autospec=True) as initialize:
                 with patch.multiple(
-                    Connection, send_command=DEFAULT, connect=DEFAULT, can_read=DEFAULT
-                ) as mocks:
+                                Connection, send_command=DEFAULT, connect=DEFAULT, can_read=DEFAULT
+                            ) as mocks:
                     # simulate 7006 as a failed node
                     def parse_response_mock(connection, command_name, **options):
                         if connection.port == 7006:
@@ -456,7 +456,7 @@ class TestRedisClusterObj:
                         self.default_node = node_7006
                         self.slots_cache = {}
 
-                        for i in range(0, 16383):
+                        for i in range(16383):
                             self.slots_cache[i] = [node_7006]
 
                         # After the first connection fails, a reinitialize
@@ -466,7 +466,7 @@ class TestRedisClusterObj:
                             self.default_node = node_7007
                             self.slots_cache = {}
 
-                            for i in range(0, 16383):
+                            for i in range(16383):
                                 self.slots_cache[i] = [node_7007]
 
                         # Change initialize side effect for the second call
@@ -598,9 +598,9 @@ class TestRedisClusterObj:
         """
         Set a list of nodes and it should be possible to iterate over all
         """
-        nodes = [node for node in r.nodes_manager.nodes_cache.values()]
+        nodes = list(r.nodes_manager.nodes_cache.values())
 
-        for i, node in enumerate(r.get_nodes()):
+        for node in r.get_nodes():
             assert node in nodes
 
     def test_all_nodes_masters(self, r):
@@ -656,12 +656,9 @@ class TestRedisClusterObj:
         test successful replacement of the default cluster node
         """
         default_node = r.get_default_node()
-        # get a different node
-        new_def_node = None
-        for node in r.get_nodes():
-            if node != default_node:
-                new_def_node = node
-                break
+        new_def_node = next(
+            (node for node in r.get_nodes() if node != default_node), None
+        )
         assert r.set_default_node(new_def_node) is True
         assert r.get_default_node() == new_def_node
 
@@ -710,10 +707,7 @@ class TestRedisClusterObj:
                 # Make sure we are not getting ClusterDownError anymore
                 assert r.exists("foo") == 1
             except ResponseError as e:
-                if f"Slot {missing_slot} is already busy" in str(e):
-                    # It can happen if the test failed to delete this slot
-                    pass
-                else:
+                if f"Slot {missing_slot} is already busy" not in str(e):
                     raise e
 
     def test_timeout_error_topology_refresh_reuse_connections(self, r):
@@ -840,7 +834,7 @@ class TestClusterRedisCommands:
         assert r.get("a") is None
         byte_string = b"value"
         integer = 5
-        unicode_string = chr(3456) + "abcd" + chr(3421)
+        unicode_string = f"{chr(3456)}abcd{chr(3421)}"
         assert r.set("byte_string", byte_string)
         assert r.set("integer", 5)
         assert r.set("unicode_string", unicode_string)
@@ -914,8 +908,7 @@ class TestClusterRedisCommands:
         nodes = r.get_nodes()
         channels = []
         pubsub_nodes = []
-        i = 0
-        for node in nodes:
+        for i, node in enumerate(nodes):
             channel = f"foo{i}"
             # We will create different pubsub clients where each one is
             # connected to a different node
@@ -931,7 +924,6 @@ class TestClusterRedisCommands:
                 sleep(0.3)
                 sub_channels = node.redis_connection.pubsub_channels()
             assert sub_channels == [b_channel]
-            i += 1
         # Assert that the cluster's pubsub_channels function returns ALL of
         # the cluster's channels
         result = r.pubsub_channels(target_nodes="all")
@@ -983,22 +975,23 @@ class TestClusterRedisCommands:
     def test_cluster_pubsub_channels(self, r):
         p = r.pubsub()
         p.subscribe("foo", "bar", "baz", "quux")
-        for i in range(4):
+        for _ in range(4):
             assert wait_for_message(p, timeout=0.5)["type"] == "subscribe"
         expected = [b"bar", b"baz", b"foo", b"quux"]
         assert all(
-            [channel in r.pubsub_channels(target_nodes="all") for channel in expected]
+            channel in r.pubsub_channels(target_nodes="all")
+            for channel in expected
         )
 
     @skip_if_server_version_lt("2.8.0")
     def test_cluster_pubsub_numsub(self, r):
         p1 = r.pubsub()
         p1.subscribe("foo", "bar", "baz")
-        for i in range(3):
+        for _ in range(3):
             assert wait_for_message(p1, timeout=0.5)["type"] == "subscribe"
         p2 = r.pubsub()
         p2.subscribe("bar", "baz")
-        for i in range(2):
+        for _ in range(2):
             assert wait_for_message(p2, timeout=0.5)["type"] == "subscribe"
         p3 = r.pubsub()
         p3.subscribe("baz")
@@ -1358,7 +1351,7 @@ class TestClusterRedisCommands:
         )
 
     def test_slowlog_get(self, r, slowlog):
-        unicode_string = chr(3456) + "abcd" + chr(3421)
+        unicode_string = f"{chr(3456)}abcd{chr(3421)}"
         node = r.get_node_from_key(unicode_string)
         slowlog_limit = self._init_slowlog_test(r, node)
         assert r.slowlog_reset(target_nodes=node)
@@ -2410,7 +2403,7 @@ class TestNodesManager:
         assert n_node == node
         assert n_node.server_type == PRIMARY
         assert len(n.slots_cache) == REDIS_CLUSTER_HASH_SLOTS
-        for i in range(0, REDIS_CLUSTER_HASH_SLOTS):
+        for i in range(REDIS_CLUSTER_HASH_SLOTS):
             assert n.slots_cache[i] == [n_node]
 
     def test_init_with_down_node(self):
@@ -2483,15 +2476,15 @@ class TestNodesManager:
             cluster_slots=default_cluster_slots,
             dynamic_startup_nodes=dynamic_startup_nodes,
         )
-        # Nodes are taken from default_cluster_slots
-        discovered_nodes = [
-            "127.0.0.1:7000",
-            "127.0.0.1:7001",
-            "127.0.0.1:7002",
-            "127.0.0.1:7003",
-        ]
         startup_nodes = list(rc.nodes_manager.startup_nodes.keys())
         if dynamic_startup_nodes is True:
+            # Nodes are taken from default_cluster_slots
+            discovered_nodes = [
+                "127.0.0.1:7000",
+                "127.0.0.1:7001",
+                "127.0.0.1:7002",
+                "127.0.0.1:7003",
+            ]
             assert startup_nodes.sort() == discovered_nodes.sort()
         else:
             assert startup_nodes == ["my@DNS.com:7000"]

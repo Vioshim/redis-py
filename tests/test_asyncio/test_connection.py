@@ -51,6 +51,8 @@ async def test_single_connection():
     command_call_count = 0
     in_use = False
 
+
+
     class Retry_:
         async def call_with_retry(self, _, __):
             # If we remove the single-client lock, this error gets raised as two
@@ -58,7 +60,7 @@ async def test_single_connection():
             # asymmetric sleep calls
             nonlocal command_call_count
             nonlocal in_use
-            if in_use is True:
+            if in_use:
                 raise ValueError("Commands should be executed one at a time.")
             in_use = True
             await asyncio.sleep(0.01)
@@ -66,6 +68,7 @@ async def test_single_connection():
             await asyncio.sleep(0.03)
             in_use = False
             return "foo"
+
 
     mock_conn = mock.MagicMock()
     mock_conn.retry = Retry_()

@@ -234,11 +234,10 @@ class SocketBuffer:
         )
 
     def read(self, length: int) -> bytes:
-        length = length + 2  # make sure to read the \r\n terminator
+        length += 2
         # BufferIO will return less than requested if buffer is short
         data = self._buffer.read(length)
-        missing = length - len(data)
-        if missing:
+        if missing := length - len(data):
             # fill up the buffer and read the remainder
             self._read_from_socket(missing)
             data += self._buffer.read(missing)
@@ -278,10 +277,6 @@ class SocketBuffer:
         if unread > 0:
             return
 
-        if unread > 0:
-            # move unread data to the front
-            view = self._buffer.getbuffer()
-            view[:unread] = view[-unread:]
         self._buffer.truncate(unread)
         self._buffer.seek(0)
 
@@ -367,26 +362,22 @@ class PythonParser(BaseParser):
             # and/or the pipeline's execute() will raise this error if
             # necessary, so just return the exception instance here.
             return error
-        # single value
         elif byte == b"+":
             pass
-        # int value
         elif byte == b":":
             response = int(response)
-        # bulk response
         elif byte == b"$":
             length = int(response)
             if length == -1:
                 return None
             response = self._buffer.read(length)
-        # multi-bulk response
         elif byte == b"*":
             length = int(response)
             if length == -1:
                 return None
             response = [
                 self._read_response(disable_decoding=disable_decoding)
-                for i in range(length)
+                for _ in range(length)
             ]
         if isinstance(response, bytes) and disable_decoding is False:
             response = self.encoder.decode(response)
@@ -433,8 +424,8 @@ class HiredisParser(BaseParser):
 
         if self._next_response is False:
             self._next_response = self._reader.gets()
-            if self._next_response is False:
-                return self.read_from_socket(timeout=timeout, raise_on_timeout=False)
+        if self._next_response is False:
+            return self.read_from_socket(timeout=timeout, raise_on_timeout=False)
         return True
 
     def read_from_socket(self, timeout=SENTINEL, raise_on_timeout=True):
@@ -503,10 +494,7 @@ class HiredisParser(BaseParser):
 
 
 DefaultParser: BaseParser
-if HIREDIS_AVAILABLE:
-    DefaultParser = HiredisParser
-else:
-    DefaultParser = PythonParser
+DefaultParser = HiredisParser if HIREDIS_AVAILABLE else PythonParser
 
 
 class Connection:
@@ -572,11 +560,7 @@ class Connection:
             retry_on_error.append(TimeoutError)
         self.retry_on_error = retry_on_error
         if retry or retry_on_error:
-            if retry is None:
-                self.retry = Retry(NoBackoff(), 1)
-            else:
-                # deep-copy the Retry object as it is mutable
-                self.retry = copy.deepcopy(retry)
+            self.retry = Retry(NoBackoff(), 1) if retry is None else copy.deepcopy(retry)
             # Update the retry's supported errors with the specified errors
             self.retry.update_supported_errors(retry_on_error)
         else:
@@ -650,8 +634,7 @@ class Connection:
         # run any user callbacks. right now the only internal callback
         # is for pubsub channel/pattern resubscription
         for ref in self._connect_callbacks:
-            callback = ref()
-            if callback:
+            if callback := ref():
                 callback(self)
 
     def _connect(self):
@@ -709,20 +692,17 @@ class Connection:
 
         host_error = self._host_error()
 
-        if len(exception.args) == 1:
-            try:
+        try:
+            if len(exception.args) == 1:
                 return f"Error connecting to {host_error}. \
                         {exception.args[0]}."
-            except AttributeError:
-                return f"Connection Error: {exception.args[0]}"
-        else:
-            try:
+            else:
                 return (
                     f"Error {exception.args[0]} connecting to "
                     f"{host_error}. {exception.args[1]}."
                 )
-            except AttributeError:
-                return f"Connection Error: {exception.args[0]}"
+        except AttributeError:
+            return f"Connection Error: {exception.args[0]}"
 
     def on_connect(self):
         "Initialize the connection, authenticate and select a database"
@@ -898,8 +878,7 @@ class Connection:
                 buff = SYM_EMPTY.join(
                     (buff, SYM_DOLLAR, str(arg_length).encode(), SYM_CRLF)
                 )
-                output.append(buff)
-                output.append(arg)
+                output.extend((buff, arg))
                 buff = SYM_CRLF
             else:
                 buff = SYM_EMPTY.join(
@@ -1137,11 +1116,7 @@ class UnixDomainSocketConnection(Connection):
             retry_on_error.append(TimeoutError)
         self.retry_on_error = retry_on_error
         if self.retry_on_error:
-            if retry is None:
-                self.retry = Retry(NoBackoff(), 1)
-            else:
-                # deep-copy the Retry object as it is mutable
-                self.retry = copy.deepcopy(retry)
+            self.retry = Retry(NoBackoff(), 1) if retry is None else copy.deepcopy(retry)
             # Update the retry's supported errors with the specified errors
             self.retry.update_supported_errors(retry_on_error)
         else:
@@ -1222,8 +1197,7 @@ def parse_url(url):
     for name, value in parse_qs(url.query).items():
         if value and len(value) > 0:
             value = unquote(value[0])
-            parser = URL_QUERY_ARGUMENT_PARSERS.get(name)
-            if parser:
+            if parser := URL_QUERY_ARGUMENT_PARSERS.get(name):
                 try:
                     kwargs[name] = parser(value)
                 except (TypeError, ValueError):
@@ -1322,7 +1296,7 @@ class ConnectionPool:
         if "connection_class" in kwargs:
             url_options["connection_class"] = kwargs["connection_class"]
 
-        kwargs.update(url_options)
+        kwargs |= url_options
         return cls(**kwargs)
 
     def __init__(

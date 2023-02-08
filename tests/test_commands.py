@@ -165,7 +165,7 @@ class TestRedisCommands:
         assert r.acl_deluser(username) == 1
 
         # now, a group of users
-        users = [f"bogususer_{r}" for r in range(0, 5)]
+        users = [f"bogususer_{r}" for r in range(5)]
         for u in users:
             r.acl_setuser(u, enabled=False, reset=True)
         assert r.acl_deluser(*users) > 1
@@ -277,7 +277,10 @@ class TestRedisCommands:
             "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
         )
         assert r.acl_setuser(
-            username, enabled=True, reset=True, hashed_passwords=["+" + hashed_password]
+            username,
+            enabled=True,
+            reset=True,
+            hashed_passwords=[f"+{hashed_password}"],
         )
         acl = r.acl_getuser(username)
         assert acl["passwords"] == [hashed_password]
@@ -287,12 +290,12 @@ class TestRedisCommands:
             username,
             enabled=True,
             reset=True,
-            hashed_passwords=["+" + hashed_password],
+            hashed_passwords=[f"+{hashed_password}"],
             passwords=["+pass1"],
         )
         assert len(r.acl_getuser(username)["passwords"]) == 2
         assert r.acl_setuser(
-            username, enabled=True, hashed_passwords=["-" + hashed_password]
+            username, enabled=True, hashed_passwords=[f"-{hashed_password}"]
         )
         assert len(r.acl_getuser(username)["passwords"]) == 1
 
@@ -843,7 +846,7 @@ class TestRedisCommands:
     @pytest.mark.onlynoncluster
     def test_slowlog_get(self, r, slowlog):
         assert r.slowlog_reset()
-        unicode_string = chr(3456) + "abcd" + chr(3421)
+        unicode_string = f"{chr(3456)}abcd{chr(3421)}"
         r.get(unicode_string)
         slowlog = r.slowlog_get()
         assert isinstance(slowlog, list)
@@ -1265,7 +1268,7 @@ class TestRedisCommands:
         assert r.get("a") is None
         byte_string = b"value"
         integer = 5
-        unicode_string = chr(3456) + "abcd" + chr(3421)
+        unicode_string = f"{chr(3456)}abcd{chr(3421)}"
         assert r.set("byte_string", byte_string)
         assert r.set("integer", 5)
         assert r.set("unicode_string", unicode_string)
@@ -1352,7 +1355,7 @@ class TestRedisCommands:
         assert r.incrbyfloat("a") == 1.0
         assert r["a"] == b"1"
         assert r.incrbyfloat("a", 1.1) == 2.1
-        assert float(r["a"]) == float(2.1)
+        assert float(r["a"]) == 2.1
 
     @pytest.mark.onlynoncluster
     def test_keys(self, r):
@@ -2268,8 +2271,8 @@ class TestRedisCommands:
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 3})
         assert r.zcount("a", "-inf", "+inf") == 3
         assert r.zcount("a", 1, 2) == 2
-        assert r.zcount("a", "(" + str(1), 2) == 1
-        assert r.zcount("a", 1, "(" + str(2)) == 1
+        assert r.zcount("a", '(1', 2) == 1
+        assert r.zcount("a", 1, '(2') == 1
         assert r.zcount("a", 10, 20) == 0
 
     @pytest.mark.onlynoncluster

@@ -404,7 +404,7 @@ def test_tdigest_min_and_max(client):
 def test_tdigest_quantile(client):
     assert client.tdigest().create("tDigest", 500)
     # insert data-points into sketch
-    assert client.tdigest().add("tDigest", list([x * 0.01 for x in range(1, 10000)]))
+    assert client.tdigest().add("tDigest", [x * 0.01 for x in range(1, 10000)])
     # assert min min/max have same result as quantile 0 and 1
     res = client.tdigest().quantile("tDigest", 1.0)
     assert client.tdigest().max("tDigest") == res[0]
@@ -447,7 +447,7 @@ def test_tdigest_trimmed_mean(client):
 @pytest.mark.experimental
 def test_tdigest_rank(client):
     assert client.tdigest().create("t-digest", 500)
-    assert client.tdigest().add("t-digest", list(range(0, 20)))
+    assert client.tdigest().add("t-digest", list(range(20)))
     assert -1 == client.tdigest().rank("t-digest", -1)[0]
     assert 0 == client.tdigest().rank("t-digest", 0)[0]
     assert 10 == client.tdigest().rank("t-digest", 10)[0]
@@ -458,7 +458,7 @@ def test_tdigest_rank(client):
 @pytest.mark.experimental
 def test_tdigest_revrank(client):
     assert client.tdigest().create("t-digest", 500)
-    assert client.tdigest().add("t-digest", list(range(0, 20)))
+    assert client.tdigest().add("t-digest", list(range(20)))
     assert -1 == client.tdigest().revrank("t-digest", 20)[0]
     assert 19 == client.tdigest().revrank("t-digest", 0)[0]
     assert [-1, 19, 9] == client.tdigest().revrank("t-digest", 21, 0, 10)

@@ -34,7 +34,7 @@ class SentinelManagedConnection(Connection):
         if self.host:
             host_info = f",host={self.host},port={self.port}"
             s += host_info
-        return s + ">"
+        return f"{s}>"
 
     async def connect_to(self, address):
         self.host, self.port = address
@@ -132,12 +132,11 @@ class SentinelConnectionPool(ConnectionPool):
 
     async def get_master_address(self):
         master_address = await self.sentinel_manager.discover_master(self.service_name)
-        if self.is_master:
-            if self.master_address != master_address:
-                self.master_address = master_address
-                # disconnect any idle connections so that they reconnect
-                # to the new master the next time that they are used.
-                await self.disconnect(inuse_connections=False)
+        if self.is_master and self.master_address != master_address:
+            self.master_address = master_address
+            # disconnect any idle connections so that they reconnect
+            # to the new master the next time that they are used.
+            await self.disconnect(inuse_connections=False)
         return master_address
 
     async def rotate_slaves(self) -> AsyncIterator:
@@ -148,8 +147,7 @@ class SentinelConnectionPool(ConnectionPool):
                 self.slave_rr_counter = random.randint(0, len(slaves) - 1)
             for _ in range(len(slaves)):
                 self.slave_rr_counter = (self.slave_rr_counter + 1) % len(slaves)
-                slave = slaves[self.slave_rr_counter]
-                yield slave
+                yield slaves[self.slave_rr_counter]
         # Fallback to the master connection
         try:
             yield await self.get_master_address()
@@ -216,7 +214,7 @@ class Sentinel(AsyncSentinelCommands):
                node at random, rather than across the entire sentinel cluster.
         """
         once = bool(kwargs.get("once", False))
-        if "once" in kwargs.keys():
+        if "once" in kwargs:
             kwargs.pop("once")
 
         if once:
@@ -230,21 +228,17 @@ class Sentinel(AsyncSentinelCommands):
         return True
 
     def __repr__(self):
-        sentinel_addresses = []
-        for sentinel in self.sentinels:
-            sentinel_addresses.append(
-                f"{sentinel.connection_pool.connection_kwargs['host']}:"
-                f"{sentinel.connection_pool.connection_kwargs['port']}"
-            )
+        sentinel_addresses = [
+            f"{sentinel.connection_pool.connection_kwargs['host']}:{sentinel.connection_pool.connection_kwargs['port']}"
+            for sentinel in self.sentinels
+        ]
         return f"{self.__class__.__name__}<sentinels=[{','.join(sentinel_addresses)}]>"
 
     def check_master_state(self, state: dict, service_name: str) -> bool:
         if not state["is_master"] or state["is_sdown"] or state["is_odown"]:
             return False
         # Check if our sentinel doesn't see other nodes
-        if state["num-other-sentinels"] < self.min_other_sentinels:
-            return False
-        return True
+        return state["num-other-sentinels"] >= self.min_other_sentinels
 
     async def discover_master(self, service_name: str):
         """
@@ -273,12 +267,11 @@ class Sentinel(AsyncSentinelCommands):
         self, slaves: Iterable[Mapping]
     ) -> Sequence[Tuple[EncodableT, EncodableT]]:
         """Remove slaves that are in an ODOWN or SDOWN state"""
-        slaves_alive = []
-        for slave in slaves:
-            if slave["is_odown"] or slave["is_sdown"]:
-                continue
-            slaves_alive.append((slave["ip"], slave["port"]))
-        return slaves_alive
+        return [
+            (slave["ip"], slave["port"])
+            for slave in slaves
+            if not slave["is_odown"] and not slave["is_sdown"]
+        ]
 
     async def discover_slaves(
         self, service_name: str
@@ -289,8 +282,7 @@ class Sentinel(AsyncSentinelCommands):
                 slaves = await sentinel.sentinel_slaves(service_name)
             except (ConnectionError, ResponseError, TimeoutError):
                 continue
-            slaves = self.filter_slaves(slaves)
-            if slaves:
+            if slaves := self.filter_slaves(slaves):
                 return slaves
         return []
 
@@ -324,8 +316,7 @@ class Sentinel(AsyncSentinelCommands):
         arguments to be used to initialize Redis connections.
         """
         kwargs["is_master"] = True
-        connection_kwargs = dict(self.connection_kwargs)
-        connection_kwargs.update(kwargs)
+        connection_kwargs = dict(self.connection_kwargs) | kwargs
         return redis_class(
             connection_pool=connection_pool_class(
                 service_name, self, **connection_kwargs
@@ -357,8 +348,7 @@ class Sentinel(AsyncSentinelCommands):
         arguments to be used to initialize Redis connections.
         """
         kwargs["is_master"] = False
-        connection_kwargs = dict(self.connection_kwargs)
-        connection_kwargs.update(kwargs)
+        connection_kwargs = dict(self.connection_kwargs) | kwargs
         return redis_class(
             connection_pool=connection_pool_class(
                 service_name, self, **connection_kwargs
